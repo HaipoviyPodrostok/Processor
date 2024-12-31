@@ -26,8 +26,8 @@ int main() {
         
         int action = 0; 
         
-        if (strcasecmp(cmd, "push") == 0) {
-            action = PUSH;
+        if (strcasecmp(cmd, "in") == 0) {
+            action = IN;
         }
         
         else if (strcasecmp(cmd, "add") == 0) {
@@ -58,15 +58,14 @@ int main() {
             break;
         }
 
-        double value = 0;
-        
-        fscanf(file_from, "%lg", &value);
-
         switch (action) {
         
-            case PUSH:
+            case IN: {
+                double value = 0;
+                fscanf(file_from, "%lg", &value);
                 fprintf(file_to, "1 %lg\n", value);
                 break;
+            }
 
             case ADD:
                 fprintf(file_to, "2 \n");

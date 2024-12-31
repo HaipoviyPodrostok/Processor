@@ -1,8 +1,8 @@
-push 20
-push 80
+in 20
+in 80
 add
-push 12
-push 2
+in 12
+in 2
 sub
 out
 hlt
