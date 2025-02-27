@@ -1,104 +1,41 @@
-#include <stdio.h>
-#include <strings.h>
+#include <cstdio>
+#include <cstring>
 #include <cstdlib>
+
 #include "assembler.h"
 
-int main() {
-    FILE* file_from = fopen("../ProgramFiles/programs.txt", "r");
+int main(int argc, char* argv[]) {
     
-    if (file_from == NULL) {
-        printf("%s:%s, %s(): Error while opening file \"programs.txt\"", __FILE__, __FILE__, __func__);
-        return 1;
+    if (argc < 3) {
+        fprintf(stderr, "There are not enough arguments in the command line");
+        return TOO_FEW_ARGUMENTS;
     }
 
-    FILE* file_to = fopen("../ProgramFiles/programs_v2.txt", "w");
-
+    else if (argc > 3) {
+        fprintf(stderr, "Too much arguments in the command line");
+        return TOO_FEW_ARGUMENTS;
+    }
+    
+    FILE* file_from = fopen(argv[1], "r");   //"../ProgramFiles/programs.txt"
     if (file_from == NULL) {
+        fprintf(stderr, "%s:%s, %s(): Error while opening file \"programs.txt\"", __FILE__, __FILE__, __func__);
+        return ERROR_WHILE_OPENING_FILE;
+    }
+    
+    FILE* file_to = fopen(argv[2], "w");   //"../ProgramFiles/programs_v2.txt"
+    if (file_to == NULL) {
         printf("%s:%s, %s(): Error while opening file \"programs_v2.txt\"", __FILE__, __FILE__, __func__);
-        return 1;
+        return ERROR_WHILE_OPENING_FILE;
     }
 
-    while (true) {
-        
-        char cmd[100] = "";
-        int fscanf_result = 0;
-        fscanf_result = fscanf(file_from, "%s", cmd);
-        
-        int action = 0; 
-        
-        if (strcasecmp(cmd, "in") == 0) {
-            action = IN;
-        }
-        
-        else if (strcasecmp(cmd, "add") == 0) {
-            action = ADD;
-        } 
-
-        else if (strcasecmp(cmd, "sub") == 0) {
-            action = SUB;
-        }
-
-        else if (strcasecmp(cmd, "mul") == 0) {
-            action = MUL;
-        }  
-
-        else if (strcasecmp(cmd, "div") == 0) {
-            action = DIV;
-        }
-        
-        else if (strcasecmp(cmd, "out") == 0) {
-            action = OUT;
-        }
-
-        else if (strcasecmp(cmd, "hlt") == 0) {
-            action = HLT;
-        }
-        
-        else if (fscanf_result == EOF) {
-            break;
-        }
-
-        switch (action) {
-        
-            case IN: {
-                double value = 0;
-                fscanf(file_from, "%lg", &value);
-                fprintf(file_to, "1 %lg\n", value);
-                break;
-            }
-
-            case ADD:
-                fprintf(file_to, "2 \n");
-                break;
-            
-            case SUB:
-                fprintf(file_to, "3 \n");
-                break;
-            
-            case MUL:
-                fprintf(file_to, "4 \n");
-                break;
-
-            case DIV:
-                fprintf(file_to, "5 \n");
-                break;
-
-            case OUT:
-                fprintf(file_to, "6 \n");
-                break;
-            
-            case HLT:
-                fprintf(file_to, "7 \n");
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    fclose(file_from);
-    fclose(file_to);
+    labels_t labels_1 = {NULL, 20, 0};
     
+    
+    labels_1.label_arr = (int*) calloc(labels_1.size, sizeof(int));
+    
+    first_pass(file_from, file_to, &labels_1);
+    second_pass(file_from, file_to, &labels_1);
+
+    free(labels_1.label_arr);
     return 0;
 }
-

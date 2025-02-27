@@ -1,8 +1,15 @@
-in 20
-in 80
-add
-in 12
-in 2
-sub
+push 1
+pop_r ax
+7:
+push_r ax
+push_r ax
+mul
 out
+push_r ax
+push 1
+add
+pop_r ax
+push_r ax 
+push 10
+jmp 7:
 hlt
