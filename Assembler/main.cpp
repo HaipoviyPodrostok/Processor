@@ -30,7 +30,6 @@ int main(int argc, char* argv[]) {
 
     labels_t labels_1 = {NULL, 20, 0};
     
-    
     labels_1.label_arr = (int*) calloc(labels_1.size, sizeof(int));
     
     first_pass(file_from, file_to, &labels_1);

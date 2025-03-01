@@ -48,15 +48,20 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
 
         char cmd[100] = "";
         int fscanf_result = 0;
-        fscanf_result = fscanf(file_from, "%s", cmd);  //обработать ошибку
-        size_t action = 0; 
+        fscanf(file_from, "%s", cmd);  //обработать ошибку
         
-        const char* commands[] = {"push", "push_r", "pop_r", "add", "sub", "mul", "div", "out", "hlt", "jmp", "jb", "jbe", "ja", "jae", "je", "jne"};
-        //вынести все комманды в константы (push, push_r ... )
+        if (feof(file_from)) {
+            break;
+        }
+        
+        int action = 0; 
+        
+        const char* commands[] = {"push", "pop", "add", "sub", "mul", "div", "out", "hlt", "jmp", "jb", "jbe", "ja", "jae", "je", "jne"};
+        //вынести все команды в константы (push, push_r ... )
         
         static_assert(PUSH == 0);
 
-        for(size_t i = PUSH; i < SIZE__ ; i++) {  
+        for(int i = PUSH; i < SIZE__ ; i++) {  
             
             if (strcasecmp(cmd, commands[i]) == 0) {
                 action = i;                                           //TODO переименовать енамы
@@ -74,23 +79,105 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
 
         switch (action) {
         
-            case PUSH: {
-                double value = 0;
-                fscanf(file_from, "%lg", &value);
-                fprintf(file_to, "%lu %lg\n", action, value);      
-                IP += 2;
+            case PUSH:
+            case POP: {
+                
+                int push_action = 0;           
+                char push_value_str[100] = "";
+                
+                fscanf(file_from, "%s", push_value_str);
+                
+                if (strchr(push_value_str, '[')) {
+                    
+                    if (strchr(push_value_str, 'x')) {
+                        
+                        if (strchr(push_value_str, '+')) {
+                            push_action = MEM_REG_NUM;
+                        }
+
+                        else {
+                            push_action = MEM_REG;
+                        }
+                    }
+
+                    else {
+                        push_action = MEM_NUM;
+                    }
+                }
+
+                else if (strchr(push_value_str, 'x')) {
+                    
+                    if (strchr(push_value_str, '+')) {
+                        push_action = REG_NUM;
+                    } 
+
+                    else {
+                        push_action = REG;
+                    }
+                }
+                
+                else {
+                    push_action = NUM;
+                }
+
+                switch (push_action) {
+
+                    case NUM: {
+                        double value = 0;
+                        sscanf(push_value_str, "%lg", &value);
+                        fprintf(file_to, "%d %d %lg\n", action, push_action, value);    
+                        IP += 3;
+                        break;
+                    }
+
+                    case REG: {
+                        char reg_num[100] = "";
+                        sscanf(push_value_str, "%s", reg_num);
+                        fprintf(file_to, "%d %d %d\n", action, push_action, (reg_num[0] - 'a'));
+                        IP += 3;
+                        break;
+                    }
+
+                    case REG_NUM: {
+                        double value = 0;
+                        char reg_num[100] = "";
+                        sscanf(push_value_str, "%s %lg", reg_num, &value);      //TODO обработать когда наоборот
+                        fprintf(file_to, "%d %d %lg %d\n", action, push_action, value, (reg_num[0] - 'a'));   // сначала число, потом регистр
+                        IP += 4;
+                        break;
+                    }
+
+                    case MEM_NUM: {
+                        double value = 0;
+                        sscanf(push_value_str, "[%lg]", &value);
+                        fprintf(file_to, "%d %d %lg\n", action, push_action, value);
+                        IP += 3;
+                        break;
+                    }
+
+                    case MEM_REG: {
+                        char reg_num[100] = "";
+                        sscanf(push_value_str, "[%s]", reg_num);
+                        fprintf(file_to, "%d %d %d\n", action, push_action, (reg_num[0] - 'a'));
+                        IP += 3;
+                        break;
+                    }
+                    
+                    case MEM_REG_NUM: {
+                        double value = 0;
+                        char reg_num[100] = "";
+                        sscanf(push_value_str, "[%s %lg]", reg_num, &value);
+                        fprintf(file_to, "%d %d %lg %d\n", action, push_action, value, (reg_num[0] - 'a'));
+                        IP += 4;
+                        break;
+                    }
+
+                    default:
+                        break;    //TODO обработать
+                }                  
                 break;
             }
             // FIXME сделать бинарник
-
-            case PUSH_R: 
-            case POP_R: {
-                char reg_num[100] = "";
-                fscanf(file_from, "%s", reg_num);
-                fprintf(file_to, "%lu %d\n", action, (reg_num[0] - 'a'));
-                IP += 2;
-                break;
-            }
 
             case ADD:
             case SUB:
@@ -98,7 +185,7 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
             case DIV:
             case OUT:
             case HLT:
-                fprintf(file_to, "%lu\n", action);
+                fprintf(file_to, "%d\n", action);
                 IP++;
                 break;
 
@@ -117,13 +204,13 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
                 if (strchr(jmp_value_str, ':')) {
                     int value = 0;
                     sscanf(jmp_value_str, "%d:", &value);
-                    fprintf(file_to, "%lu %d\n", action, labels->label_arr[value]);
+                    fprintf(file_to, "%d %d\n", action, labels->label_arr[value]);
                 }
                 
                 else {
                     int value = 0;
                     sscanf(jmp_value_str, "%d", &value);
-                    fprintf(file_to, "%lu %d\n", action, value);  
+                    fprintf(file_to, "%d %d\n", action, value);  
                 }
                 
                 IP += 2;

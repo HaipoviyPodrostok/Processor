@@ -3,24 +3,32 @@
 
 
 enum Programs {
-    PUSH = 0,
-    PUSH_R = 1,
-    POP_R = 2,
-    ADD = 3,
-    SUB = 4,
-    MUL = 5,
-    DIV = 6,
-    OUT = 7,
-    HLT = 8, 
-    JMP = 9,
-    JB = 10,
-    JBE = 11,
-    JA = 12,
-    JAE = 13,
-    JE = 14,
-    JNE = 15,
-    SIZE__ = 16,
-    MARK = 17,
+    PUSH,
+    POP,
+    ADD,
+    SUB,
+    MUL, 
+    DIV, 
+    OUT, 
+    HLT, 
+    JMP,
+    JB, 
+    JBE, 
+    JA, 
+    JAE, 
+    JE, 
+    JNE, 
+    SIZE__, 
+    MARK,
+};
+
+enum ArgumentTypes {
+    NUM = 1, 
+    REG = 2,
+    REG_NUM = 3,
+    MEM_NUM = 4,
+    MEM_REG = 6,
+    MEM_REG_NUM = 7,
 };
 
 enum Errors {

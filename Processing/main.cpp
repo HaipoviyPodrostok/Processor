@@ -19,15 +19,14 @@ int main(int argc, char* argv[]) {
         return TOO_FEW_ARGUMENTS;
     }
     
-    const char* file_name = argv[i];
-    
-    FILE* file_from = open_file(file_name);
+    FILE* file_from = fopen(argv[1], "r");
 
     if (file_from == NULL) {
+        fprintf(stderr, "%s:%s, %s(): Error while opening file \"programs.txt\"\n", __FILE__, __FILE__, __func__);
         return FILE_OPENING_ERROR;
     }
 
-    code_t code_1 = {NULL, 0, 0};
+    code_t code_1 = {NULL, 0};
     
     stack_t stack_1 = {NULL, 0, 0};
     stack_ctor(&stack_1, 10);
@@ -35,12 +34,10 @@ int main(int argc, char* argv[]) {
     if (make_code(file_from, &code_1) != 0) {
         return 1;                   // TODO назвать ошибку
     }
-    //int proc_completion = processing(&stack_1, file_from);
     
     processing(&code_1, &stack_1);
     
     free(code_1.code_arr);
-
     fclose (file_from);
 
     return 0;

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <cassert>
 
 #include "processor.h"
 #include "../Stack/stack_structs.h"
@@ -8,46 +9,106 @@
 #include "../Stack/verificator.h"
 
 int processing(code_t* code, stack_t* stk) {
-    // FIXME assert
+    assert(code != 0 || stk != 0);
     size_t IP = 0;
 
-    stack_elem_t* code_arr_proc = 0;
-    code_arr_proc = code->code_arr;
     const size_t MAX_IP = code->size - 1;
 
-    reg_t reg_1 = {NULL,4,0};
-    size_t REG_SIZE = reg_1.size;
-    stack_elem_t* reg_array = NULL;
-    reg_array = (stack_elem_t*) calloc(REG_SIZE, sizeof(stack_elem_t));
+    //MAKE REGISTERS ARRAY:
+    reg_t reg_1 = {NULL, 4};
+    size_t REG_SIZE = reg_1.size;                                                   //reg_ctor
+    reg_1.reg_arr = (stack_elem_t*) calloc(REG_SIZE, sizeof(stack_elem_t));
     
-    
+    //MAKE MEMORY ARRAY:
+    mem_t mem_1 = {NULL, 0};                    //mem_ctor
+    mem_1.size = 100;
+    mem_1.mem_arr = (stack_elem_t*) calloc(mem_1.size, sizeof(stack_elem_t));
+
     while (IP <= MAX_IP) {
         
-        int action = (int)code_arr_proc[IP];
-
+        int action = (int)code->code_arr[IP];
         IP++;
         
         if (IP > MAX_IP) {
-            action = HLT;          // придумать ошибку + придумать проверку
+            fprintf(stderr, "%s:%s, %s(): Error: code ended, but hlt was not detected.", __FILE__, __FILE__, __func__);  // придумать ошибку + придумать проверку
+            action = HLT;
         }
 
         switch (action) {
 
-            case PUSH: 
-                stack_push(stk, code_arr_proc[IP]);
-                verificator(stk);
+            case PUSH: {   
+                
+                int arg_type = (int)code->code_arr[IP];
                 IP++;
-                break;
+                
+                switch (arg_type) {
+                    
+                    case NUM:                  
+                        stack_push(stk, code->code_arr[IP]);
+                        IP++;
+                        break;
+                    
+                    case REG: 
+                        push_r(reg_1.reg_arr, stk, (int)code->code_arr[IP]);
+                        IP++;
+                        break;
+                    
+                    case REG_NUM:
+                        push_r(reg_1.reg_arr, stk, (int)code->code_arr[IP]);
+                        IP++;
+                        stack_push(stk, code->code_arr[IP]);
+                        IP++;
+                        break; 
 
-            case PUSH_R:
-                push_r(reg_array, stk, (int)code_arr_proc[IP]);
-                IP++;
-                break;
+                    case MEM_NUM:
+                        push_m(mem_1.mem_arr, stk,  (int)code->code_arr[IP]);
+                        IP++;
+                        break;
 
-            case POP_R:
-                pop_r(reg_array, stk, (int)code_arr_proc[IP]);
+                    case MEM_REG:
+                        push_mr(mem_1.mem_arr, stk, reg_1.reg_arr, (int)code->code_arr[IP]);
+                        IP++;
+                        break;
+
+                    case MEM_REG_NUM:  //TODO доделать
+                        break;
+
+                    default:
+                        break;
+                }
+            
+            break;
+            } 
+
+            case POP: {
+                
+                int arg_type = code->code_arr[IP];
                 IP++;
-                break;
+
+                switch (arg_type) {
+                    
+                    case REG:
+                        pop_r(code->code_arr, stk, (int)code->code_arr[IP]);
+                        IP++;
+                        break;
+                    
+                    case MEM_NUM:
+                        pop_m(mem_1.mem_arr, stk,  (int)code->code_arr[IP]);
+                        IP++;
+                        break;
+
+                    case MEM_REG:
+                        pop_mr(mem_1.mem_arr, stk, reg_1.reg_arr, (int)code->code_arr[IP]);
+                        IP++;
+                        break;
+
+                    case MEM_REG_NUM:
+                        //TODO доделать
+                        break;
+                }
+            
+                break;    
+            }
 
             case ADD:
                 stack_push(stk, stack_pop(stk) + stack_pop(stk)); 
@@ -88,12 +149,12 @@ int processing(code_t* code, stack_t* stk) {
             case HLT:
                 stack_dump(stk);
                 stack_dtor(stk);
-                reg_dump(reg_array, REG_SIZE);
-                reg_dtor(reg_array, REG_SIZE);
+                reg_dump(reg_1.reg_arr, REG_SIZE);   // mem dtor
+                reg_dtor(reg_1.reg_arr, REG_SIZE);
                 return 0;
             
             case JMP:
-                IP = (size_t)code_arr_proc[IP];
+                IP = code->code_arr[IP];
                 break;
 
             case JB: {
@@ -104,7 +165,79 @@ int processing(code_t* code, stack_t* stk) {
                 a = stack_pop(stk);
 
                 if (a < b) {
-                    IP = (size_t)code_arr_proc[IP];
+                    IP = code->code_arr[IP];
+                }
+
+                else {
+                    IP++;
+                }
+
+                break;
+            }
+
+            case JBE: {
+                stack_elem_t a = 0;
+                stack_elem_t b = 0;
+
+                b = stack_pop(stk);
+                a = stack_pop(stk);
+
+                if (a <= b) {
+                    IP = code->code_arr[IP];
+                }
+
+                else {
+                    IP++;
+                }
+
+                break;
+            }
+
+            case JA: {
+                stack_elem_t a = 0;
+                stack_elem_t b = 0;
+
+                b = stack_pop(stk);
+                a = stack_pop(stk);
+
+                if (a > b) {
+                    IP = code->code_arr[IP];
+                }
+
+                else {
+                    IP++;
+                }
+
+                break;
+            }
+
+            case JAE: {
+                stack_elem_t a = 0;
+                stack_elem_t b = 0;
+
+                b = stack_pop(stk);
+                a = stack_pop(stk);
+
+                if (a >= b) {
+                    IP = code->code_arr[IP];
+                }
+
+                else {
+                    IP++;
+                }
+
+                break;
+            }
+
+            case JE: {
+                stack_elem_t a = 0;
+                stack_elem_t b = 0;
+
+                b = stack_pop(stk);
+                a = stack_pop(stk);
+
+                if (a == b) {
+                    IP = code->code_arr[IP];
                 }
 
                 else {
