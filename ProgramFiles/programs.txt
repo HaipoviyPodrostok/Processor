@@ -11,5 +11,5 @@ add
 pop ax
 push ax 
 push 10
-jmp 7:
+jbe 7:
 hlt

@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
         return FILE_OPENING_ERROR;
     }
 
-    code_t code_1 = {NULL, 0};
+    code_t code_1 = {NULL, 0, 0};
     
     stack_t stack_1 = {NULL, 0, 0};
     stack_ctor(&stack_1, 10);
@@ -34,9 +34,9 @@ int main(int argc, char* argv[]) {
     if (make_code(file_from, &code_1) != 0) {
         return 1;                   // TODO назвать ошибку
     }
-    
+
     processing(&code_1, &stack_1);
-    
+
     free(code_1.code_arr);
     fclose (file_from);
 

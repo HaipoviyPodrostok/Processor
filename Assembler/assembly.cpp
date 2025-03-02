@@ -12,15 +12,19 @@ int first_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
     while (true) {
 
         char cmd[100] = "";
-        int fscanf_result = 0;
-        fscanf_result = fscanf(file_from, "%s", cmd);  //TODO обработать ошибку        
+        fscanf(file_from, "%s", cmd);  //TODO обработать ошибку        
         
-        if (fscanf_result == EOF) {
+        if (feof(file_from)) {
             break;
         }
         
+        if ((strcasecmp(cmd, "push") * strcasecmp(cmd, "pop")) == 0) {
+            IP++;
+        }
+
         else if (strchr(cmd, 'j')) {
             fscanf(file_from, "%s", cmd);
+            IP++;
         }
         
         else if (strchr(cmd, ':')) {
@@ -29,7 +33,7 @@ int first_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
             labels->label_arr[mark_num] = (int)IP;
             IP--;   // метки не считает
         }
-
+        
         IP++;
     }
     
