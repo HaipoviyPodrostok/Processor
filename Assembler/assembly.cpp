@@ -5,9 +5,21 @@
 
 #include "assembler.h"
 
+int pack_byte(u_int8_t command, u_int8_t arg_type, FILE* file_to) {
+    
+    u_int8_t command_byte = (u_int8_t)((command & 0x1F) << 3 | (arg_type & 0x07));               // 0x1F = 00011111    0x07 = 00000111
+    
+    if (fwrite(&command_byte, sizeof(command_byte), 1, file_to) != 1) {
+        fprintf(stderr, "%s:%s, %s(): ERROR: command byte writing error.\n", __FILE__, __FILE__, __func__);
+        return COMMAND_BYTE_WRITING_ERROR;
+    }
+
+    return 0;
+}
+
 int first_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
 
-    size_t IP = 0;
+    size_t instruction_num = 0;
 
     while (true) {
 
@@ -19,26 +31,26 @@ int first_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
         }
         
         if ((strcasecmp(cmd, "push") * strcasecmp(cmd, "pop")) == 0) {
-            IP++;
+            instruction_num++;
         }
 
         else if (strchr(cmd, 'j')) {
             fscanf(file_from, "%s", cmd);
-            IP++;
+            instruction_num++;
         }
         
         else if (strchr(cmd, ':')) {
             int mark_num = 0;
             sscanf(cmd, "%d:", &mark_num);
-            labels->label_arr[mark_num] = (int)IP;
-            IP--;   // метки не считает
+            labels->label_arr[mark_num] = (int)instruction_num;
+            instruction_num--;   // метки не считает
         }
         
-        IP++;
+        instruction_num++;
     }
     
-    fprintf(file_to, "%lu\n", IP);
-    
+    fwrite(&instruction_num, sizeof(instruction_num), 1, file_to);
+   
     return 0;
 }
 
@@ -58,22 +70,22 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
             break;
         }
         
-        int action = 0; 
+        int command = 0; 
         
         const char* commands[] = {"push", "pop", "add", "sub", "mul", "div", "out", "hlt", "jmp", "jb", "jbe", "ja", "jae", "je", "jne"};
         //вынести все команды в константы (push, push_r ... )
         
-        static_assert(PUSH == 0);
+        static_assert(PUSH == 0); // спросить у вовы
 
         for(int i = PUSH; i < SIZE__ ; i++) {  
             
             if (strcasecmp(cmd, commands[i]) == 0) {
-                action = i;                                           //TODO переименовать енамы
+                command = i;                                           //TODO переименовать енамы
                 break;
             }
 
             else if (strchr(cmd, ':')) {
-                action = MARK;
+                command = MARK;
             }
         }    
         
@@ -81,21 +93,22 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
             break;
         }
 
-        switch (action) {
+        int push_action = 0;      
+
+        switch (command) {
         
             case PUSH:
             case POP: {
+                     
+                char value_str[100] = "";
                 
-                int push_action = 0;           
-                char push_value_str[100] = "";
+                fscanf(file_from, "%s", value_str);
                 
-                fscanf(file_from, "%s", push_value_str);
-                
-                if (strchr(push_value_str, '[')) {
+                if (strchr(value_str, '[')) {
                     
-                    if (strchr(push_value_str, 'x')) {
+                    if (strchr(value_str, 'x')) {
                         
-                        if (strchr(push_value_str, '+')) {
+                        if (strchr(value_str, '+')) {
                             push_action = MEM_REG_NUM;
                         }
 
@@ -109,9 +122,9 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
                     }
                 }
 
-                else if (strchr(push_value_str, 'x')) {
+                else if (strchr(value_str, 'x')) {
                     
-                    if (strchr(push_value_str, '+')) {
+                    if (strchr(value_str, '+')) {
                         push_action = REG_NUM;
                     } 
 
@@ -127,51 +140,110 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
                 switch (push_action) {
 
                     case NUM: {
+                        
+                        //PACKING (COMMAND + ARG_TYPE) BYTE:
+                        pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
+                        
+                        //PACKING REG_NUM BYTE:                      
                         double value = 0;
-                        sscanf(push_value_str, "%lg", &value);
-                        fprintf(file_to, "%d %d %lg\n", action, push_action, value);    
+                        sscanf(value_str, "%lg", &value);
+                        fwrite(&value, sizeof(value), 1, file_to);
+                        
                         IP += 3;
                         break;
                     }
 
                     case REG: {
-                        char reg_num[100] = "";
-                        sscanf(push_value_str, "%s", reg_num);
-                        fprintf(file_to, "%d %d %d\n", action, push_action, (reg_num[0] - 'a'));
+                        
+                        //PACKING (COMMAND + ARG_TYPE) BYTE:
+                        pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
+                        
+                        //PACKING REG_NUM BYTE:
+                        char reg_str[10] = "";
+                        sscanf(value_str, "%s", reg_str);                        
+                        u_int8_t reg_num = (u_int8_t)(reg_str[0] - 'a');
+                        fwrite(&reg_num, sizeof(reg_num), 1, file_to);
+                        
                         IP += 3;
                         break;
                     }
 
                     case REG_NUM: {
+                        
+                        //PACKING (COMMAND + ARG_TYPE) BYTE:
+                        pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
+
                         double value = 0;
-                        char reg_num[100] = "";
-                        sscanf(push_value_str, "%s %lg", reg_num, &value);      //TODO обработать когда наоборот
-                        fprintf(file_to, "%d %d %lg %d\n", action, push_action, value, (reg_num[0] - 'a'));   // сначала число, потом регистр
+                        char reg_str[10] = "";
+                                               
+                        if (sscanf(value_str, "%lg + %s", &value, reg_str) != 2) {                            
+                            if (sscanf(value_str, "%s + %lg", reg_str, &value) != 2) {                               
+                                fprintf(stderr, "%s:%s, %s(): ERROR: reding error.\n", __FILE__, __FILE__, __func__);
+                                return READING_ERROR;
+                            }
+                        }
+                        
+                        //PACKING VALUE:                                         
+                        fwrite(&value, sizeof(value), 1, file_to);                        
+                        
+                        //PACKING REG_NUM:
+                        u_int8_t reg_num = (u_int8_t)(reg_str[0] - 'a');
+                        fwrite(&reg_num, sizeof(reg_num), 1, file_to);
+                        
                         IP += 4;
                         break;
                     }
 
                     case MEM_NUM: {
+                        
+                        //PACKING (COMMAND + ARG_TYPE) BYTE:
+                        pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
+
+                        //PACKING VALUE: 
                         double value = 0;
-                        sscanf(push_value_str, "[%lg]", &value);
-                        fprintf(file_to, "%d %d %lg\n", action, push_action, value);
+                        sscanf(value_str, "[%lg]", &value);
+                        fwrite(&value, sizeof(value), 1, file_to);
+                        
                         IP += 3;
                         break;
                     }
 
                     case MEM_REG: {
-                        char reg_num[100] = "";
-                        sscanf(push_value_str, "[%s]", reg_num);
-                        fprintf(file_to, "%d %d %d\n", action, push_action, (reg_num[0] - 'a'));
+                        
+                        //PACKING (COMMAND + ARG_TYPE) BYTE:
+                        pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
+                        
+                        //PACKING REG_NUM BYTE:
+                        char reg_str[10] = "";
+                        sscanf(value_str, "[%s]", reg_str);                        
+                        u_int8_t reg_num = (u_int8_t)(reg_str[0] - 'a');
+                        fwrite(&reg_num, sizeof(reg_num), 1, file_to);
+
                         IP += 3;
                         break;
                     }
                     
                     case MEM_REG_NUM: {
+                        
+                        //PACKING (COMMAND + ARG_TYPE) BYTE:
+                        pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
+
+                        //PACKING VALUE AND REG_NUM:
                         double value = 0;
-                        char reg_num[100] = "";
-                        sscanf(push_value_str, "[%s %lg]", reg_num, &value);
-                        fprintf(file_to, "%d %d %lg %d\n", action, push_action, value, (reg_num[0] - 'a'));
+                        char reg_str[10] = "";
+                        
+                        if ((sscanf(value_str, "[%lg + %s]", &value, reg_str) != 2) || (sscanf(value_str, "[%lg+%s]", &value, reg_str) != 2)) {              
+                            if ((sscanf(value_str, "[%lg + %s]", &value, reg_str) != 2) || (sscanf(value_str, "[%lg+%s]", &value, reg_str) != 2)) {                               
+                                fprintf(stderr, "%s:%s, %s(): ERROR: reding error.\n", __FILE__, __FILE__, __func__);
+                                return READING_ERROR;
+                            }
+                        }
+
+                        fwrite(&value, sizeof(value), 1, file_to);
+                        
+                        u_int8_t reg_num = (u_int8_t)(reg_str[0] - 'a');
+                        fwrite(&reg_num, sizeof(reg_num), 1, file_to);
+                        
                         IP += 4;
                         break;
                     }
@@ -181,7 +253,6 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
                 }                  
                 break;
             }
-            // FIXME сделать бинарник
 
             case ADD:
             case SUB:
@@ -189,7 +260,7 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
             case DIV:
             case OUT:
             case HLT:
-                fprintf(file_to, "%d\n", action);
+                pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
                 IP++;
                 break;
 
@@ -201,20 +272,25 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
             case JE:
             case JNE: {    
                 
+                //PACKING COMMAND BYTE:
+                pack_byte((u_int8_t)command, (u_int8_t)push_action, file_to);
+                
+                //PACKING JMP_ADR BYTE:
                 char jmp_value_str[100] = "";
-
                 fscanf(file_from, "%s", jmp_value_str);
                 
                 if (strchr(jmp_value_str, ':')) {
-                    int value = 0;
-                    sscanf(jmp_value_str, "%d:", &value);
-                    fprintf(file_to, "%d %d\n", action, labels->label_arr[value]);
+                    int label_num = 0;
+                    sscanf(jmp_value_str, "%d:", &label_num);
+                    u_int8_t jmp_adr = (u_int8_t)labels->label_arr[label_num]; 
+                    fwrite(&jmp_adr, sizeof(jmp_adr), 1, file_to);
                 }
                 
                 else {
                     int value = 0;
                     sscanf(jmp_value_str, "%d", &value);
-                    fprintf(file_to, "%d %d\n", action, value);  
+                    u_int8_t jmp_adr = (u_int8_t)value; 
+                    fwrite(&jmp_adr, sizeof(jmp_adr), 1, file_to);  
                 }
                 
                 IP += 2;
@@ -223,15 +299,11 @@ int second_pass(FILE* file_from, FILE* file_to, labels_t* labels) {
 
             case MARK:
                 break;
-
             
             default:
                 break;
         }
     }
-    
-    fclose(file_from);
-    fclose(file_to);
     
     return 0;
 }

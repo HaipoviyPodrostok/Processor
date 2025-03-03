@@ -69,6 +69,9 @@ typedef struct Memory {
 int make_code(FILE* file_from, code_t* code_arr);
 int processing(code_t* code, stack_t* stk);
 
+//PROC_FUNCS:
+    int proc_push(code_t* code, stack_t* stk, reg_t* registers, mem_t* memory);
+
 //REG_FUNCS:
     int pop_r(stack_elem_t* reg_array, stack_t* stk, int reg_num);
     int push_r(stack_elem_t* reg_array, stack_t* stk, int reg_num);

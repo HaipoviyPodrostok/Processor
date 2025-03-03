@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         return ERROR_WHILE_OPENING_FILE;
     }
     
-    FILE* file_to = fopen(argv[2], "w");   //"../ProgramFiles/programs_v2.txt"
+    FILE* file_to = fopen(argv[2], "wb");   //"../ProgramFiles/programs_v2.txt"
     if (file_to == NULL) {
         printf("%s:%s, %s(): Error while opening file \"programs_v2.txt\"", __FILE__, __FILE__, __func__);
         return ERROR_WHILE_OPENING_FILE;
@@ -36,5 +36,8 @@ int main(int argc, char* argv[]) {
     second_pass(file_from, file_to, &labels_1);
 
     free(labels_1.label_arr);
+    fclose(file_from);
+    fclose(file_to);
+
     return 0;
 }
